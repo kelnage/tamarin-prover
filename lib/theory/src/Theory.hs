@@ -175,7 +175,7 @@ module Theory (
 
   ) where
 
--- import           Debug.Trace
+import           Debug.Trace
 
 import           Prelude                             hiding (id, (.))
 import           Extension.Prelude                  (sortednub)
@@ -339,6 +339,7 @@ closeRuleCache axioms typAsms sig protoRules intrRulesAC isdiff = -- trace ("clo
       , _crDestruct   = destr
       , _crProtocol   = proto
       }
+
     -- | Compute a simple under-approximation to the set of facts with injective
     -- instances. A fact-tag is has injective instances, if there is no state of
     -- the protocol with more than one instance with the same term as a first
@@ -353,53 +354,49 @@ closeRuleCache axioms typAsms sig protoRules intrRulesAC isdiff = -- trace ("clo
     --
     -- We exclude facts that are not copied in a rule, as they are already handled
     -- properly by the naive backwards reasoning.
-    --
-    -- TODO: Can't see why this needs ProtoRuleE instead of the AC variants?
     findInjectiveFacts :: [ClosedProtoRule] -> InjectiveFacts
     findInjectiveFacts rules = M.fromList $ do
         tag         <- candidates
-        guard (all (guardedSingletonCopy tag) rulesE)
-        return (tag, (S.fromList $ constructions tag, S.fromList $ destructions tag))
+        guard $ not $ any (counterexample tag) rulesE
+        return (tag, ( S.fromList $ L.get cprRuleAC <$> constructions tag
+                     , S.fromList $ L.get cprRuleAC <$> destructions tag ))
       where
+        concTags r          = factTag <$> L.get rConcs r
+        premTags r          = factTag <$> L.get rPrems r
+        firstTerm           = head . factTerms
+        tagsInConcs tag ru  = filter ((tag ==) . factTag) (L.get rConcs ru)
+
         candidates = sortednub $ do
             ru  <- rulesE
-            tag <- factTag <$> L.get rConcs ru
-            guard $    (factTagMultiplicity tag == Linear)
-                    && (tag `elem` (factTag <$> L.get rPrems ru))
+            tag <- concTags ru
+            guard $ (factTagMultiplicity tag == Linear) && (tag `elem` premTags ru)
             return tag
-    
+
         -- All rules where the fact is only in conclusions once, and the first term
         -- was generated fresh
-        constructions tag   = L.get cprRuleAC <$> filter 
-            ((\r -> (length (tagInConcs tag r) == 1)
-                && (all (freshConc r) (tagInConcs tag r))) . L.get cprRuleE) rules
-        
-        -- All rules where the fact is a premise but isn't in conclusions
-        destructions tag    = L.get cprRuleAC <$> filter 
-            ((\r -> (tag `elem` (factTag <$> L.get rPrems r))
-                && not (tag `elem` (factTag <$> L.get rConcs r))) . L.get cprRuleE) rules
-    
-        guardedSingletonCopy tag ru =
-            length copies <= 1 && all guardedCopy copies
+        constructions tag = filter
+            ((\r -> (length (tagsInConcs tag r) == 1)
+                && (all (freshConc r) (tagsInConcs tag r))) . L.get cprRuleE) rules
           where
-            prems              = L.get rPrems ru
-            copies             = filter ((tag ==) . factTag) (L.get rConcs ru)
-            firstTerm          = headMay . factTerms
-    
-            -- True if there is a first term and a premise guarding it
-            guardedCopy faConc = case firstTerm faConc of
-                Nothing    -> False
-                Just tConc -> freshFact tConc `elem` prems || guardedInPrems tConc
-            -- True if there is a premise with the same tag and first term
-            guardedInPrems tConc = (`any` prems) $ \faPrem ->
-                factTag faPrem == tag && maybe False (tConc ==) (firstTerm faPrem)
-    
-        tagInConcs tag ru     = filter ((tag ==) . factTag) (L.get rConcs ru)
-        -- True if the first term of the fact was generated fresh in the prems
-        freshConc ru faConc  = case (headMay . factTerms) faConc of
-            Nothing     -> False
-            Just tConc  -> freshFact tConc `elem` (L.get rPrems ru)
+            freshConc ru faConc  = freshFact (firstTerm faConc) `elem` (L.get rPrems ru)
 
+        -- All rules where the fact is a premise but isn't in conclusions
+        destructions tag = filter
+            ((\r -> (tag `elem` premTags r)
+                && not (tag `elem` concTags r)) . L.get cprRuleE) rules
+
+        -- A rule is a counterexample to injectivity if the fact is in the conclusions
+        -- multiple times, or if it is in the conclusion without a corresponding premise
+        -- or fresh term
+        counterexample tag r  = length (tagsInConcs tag r) > 1
+            || (not (elem r $ L.get cprRuleE <$> constructions tag)
+                && any unmatched (tagsInConcs tag r))
+          where
+            unmatched faConc = not $ (`any` L.get rPrems r) $ \faPrem ->
+                factTag faPrem == tag && firstTerm faConc == firstTerm faPrem
+
+
+    -- TODO: Does this testing really need ProtoRuleE instead of the AC variants?
         rulesE = L.get cprRuleE <$> rules
 
 
