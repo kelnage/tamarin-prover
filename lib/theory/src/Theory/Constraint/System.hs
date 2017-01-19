@@ -2,6 +2,8 @@
 {-# LANGUAGE TemplateHaskell    #-}
 {-# LANGUAGE TypeOperators      #-}
 {-# LANGUAGE ViewPatterns       #-}
+{-# LANGUAGE FlexibleContexts   #-}
+
 -- |
 -- Copyright   : (c) 2010-2012 Benedikt Schmidt & Simon Meier
 -- License     : GPL v3 (see LICENSE)
@@ -28,9 +30,12 @@ module Theory.Constraint.System (
   , DiffProofContext(..)
   , InductionHint(..)
 
+  -- ** Injective facts and their lifetimes
+  , InjectiveFacts
+
   , pcSignature
   , pcRules
-  , pcInjectiveFactInsts
+  , pcInjectiveFacts
   , pcCaseDists
   , pcCaseDistKind
   , pcUseInduction
@@ -180,6 +185,7 @@ module Theory.Constraint.System (
   , prettyNonGraphSystem
   , prettyNonGraphSystemDiff
   , prettyCaseDistinction
+  , prettyInjFacts
 
   ) where
 
@@ -213,7 +219,6 @@ import           Theory.Constraint.System.Constraints
 import           Theory.Model
 import           Theory.Text.Pretty
 import           Theory.Tools.EquationStore
-import           Theory.Tools.InjectiveFactInstance
 
 ----------------------------------------------------------------------
 -- ClassifiedRules
@@ -351,19 +356,23 @@ data CaseDistinction = CaseDistinction
 data InductionHint = UseInduction | AvoidInduction
        deriving( Eq, Ord, Show )
 
+-- Injective Facts
+-- A mapping from injective fact tags to (creationRules, destructionRules)
+type InjectiveFacts = M.Map FactTag (S.Set ProtoRuleAC, S.Set ProtoRuleAC)
+
 -- | A proof context contains the globally fresh facts, classified rewrite
 -- rules and the corresponding precomputed premise case distinction theorems.
 data ProofContext = ProofContext
-       { _pcSignature          :: SignatureWithMaude
-       , _pcRules              :: ClassifiedRules
-       , _pcInjectiveFactInsts :: S.Set InjectiveFactInstance
-       , _pcCaseDistKind       :: CaseDistKind
-       , _pcCaseDists          :: [CaseDistinction]
-       , _pcUseInduction       :: InductionHint
-       , _pcTraceQuantifier    :: SystemTraceQuantifier
-       , _pcLemmaName          :: String
-       , _pcHiddenLemmas       :: [String]
-       , _pcDiffContext        :: Bool
+       { _pcSignature       :: SignatureWithMaude
+       , _pcRules           :: ClassifiedRules
+       , _pcInjectiveFacts  :: InjectiveFacts
+       , _pcCaseDistKind    :: CaseDistKind
+       , _pcCaseDists       :: [CaseDistinction]
+       , _pcUseInduction    :: InductionHint
+       , _pcTraceQuantifier :: SystemTraceQuantifier
+       , _pcLemmaName       :: String
+       , _pcHiddenLemmas    :: [String]
+       , _pcDiffContext     :: Bool
        }
        deriving( Eq, Ord, Show )
 
@@ -380,7 +389,6 @@ data DiffProofContext = DiffProofContext
        }
        deriving( Eq, Ord, Show )
 
-       
 $(mkLabels [''ProofContext, ''DiffProofContext, ''CaseDistinction])
 
 
@@ -1229,6 +1237,18 @@ prettyCaseDistinction th = vcat $
   where
     combine (i, sys) = fsep [keyword_ ("Case " ++ show i) <> colon, nest 2 (prettySystem sys)]
 
+-- | Pretty print injective facts
+prettyInjFacts :: (HighlightDocument d) => InjectiveFacts -> d
+prettyInjFacts injs = vsep $ map ppInjFact $ M.toList injs
+  where
+    ppInjFact (f, l) = (fsep [keyword (text $ showFactTagArity f)])
+                        $-$ (fsep [text "Constructed by:", vcat (ppRuleNames $ fst l)])
+                        $-$ (destr (ppRuleNames $  snd l))
+      
+    destr []         = text "(Not destructed)"
+    destr  s         = fsep [text "Destructed by:",  vcat s]
+
+    ppRuleNames s    = map prettyRuleName $ S.toList s
 
 -- Additional instances
 -----------------------

@@ -76,7 +76,6 @@ import           System.Process
 
 import           Logic.Connectives
 import           Theory
-import           Theory.Tools.InjectiveFactInstance
 import           Theory.Constraint.System.Dot (nonEmptyGraph,nonEmptyGraphDiff)
 import           Theory.Text.Pretty
 
@@ -779,8 +778,8 @@ reqCasesDiffSnippet renderUrl tidx s kind isdiff thy = vcat $
 -- | Build the Html document showing the rules of the theory.
 rulesSnippet :: HtmlDocument d => ClosedTheory -> d
 rulesSnippet thy = vcat
-    [ ppWithHeader "Fact Symbols with Injective Instances" $
-        vsep $ map prettyInjFact injFacts
+    [ ppWithHeader "Fact Symbols with Injective Instances" $ 
+        prettyInjFacts $ getInjectiveFacts thy
     , ppWithHeader "Multiset Rewriting Rules" $
         vsep $ map prettyRuleAC msrRules
     , ppWithHeader "Axioms Restricting the Set of Traces" $
@@ -788,7 +787,6 @@ rulesSnippet thy = vcat
     ]
   where
     msrRules   = get crProtocol $ getClassifiedRules thy
-    injFacts   = S.toList $ getInjectiveFactInsts thy
     ppWithHeader header body =
         caseEmptyDoc
             emptyDoc
@@ -828,8 +826,8 @@ rulesDiffSnippet thy = vcat
 -- | Build the Html document showing the either rules of the diff theory.
 rulesDiffSnippetSide :: HtmlDocument d => Side -> Bool -> ClosedDiffTheory -> d
 rulesDiffSnippetSide s isdiff thy = vcat
-    [ ppWithHeader "Fact Symbols with Injective Instances" $
-        fsep $ map prettyInjFact injFacts
+    [ ppWithHeader "Fact Symbols with Injective Instances" $ 
+        prettyInjFacts $ getDiffInjectiveFacts s isdiff thy
     , ppWithHeader "Multiset Rewriting Rules" $
         vsep $ map prettyRuleAC msrRules
     , ppWithHeader "Axioms Restricting the Set of Traces" $
@@ -837,7 +835,6 @@ rulesDiffSnippetSide s isdiff thy = vcat
     ]
   where
     msrRules = get crProtocol $ getDiffClassifiedRules s isdiff thy
-    injFacts = S.toList $ getDiffInjectiveFactInsts s isdiff thy
     ppWithHeader header body =
         caseEmptyDoc
             emptyDoc
