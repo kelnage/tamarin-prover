@@ -356,29 +356,32 @@ closeRuleCache axioms typAsms sig protoRules intrRulesAC isdiff = -- trace ("clo
     -- properly by the naive backwards reasoning.
     findInjectiveFacts :: [ClosedProtoRule] -> InjectiveFacts
     findInjectiveFacts rules = M.fromList $ do
-        tag         <- candidates
-        guard $ not $ any (counterexample tag) rulesE
-        return (tag, ( S.fromList $ L.get cprRuleAC <$> constructions tag
+        (tag, index) <- candidates
+        guard $ not $ any (counterexample (tag, index)) rulesE
+        return (tag, ( -- index -- TODO: store the index of the fresh term in the injective fact in the map
+		               S.fromList $ L.get cprRuleAC <$> constructions (tag, index)
                      , S.fromList $ L.get cprRuleAC <$> destructions tag ))
       where
         concTags r          = factTag <$> L.get rConcs r
         premTags r          = factTag <$> L.get rPrems r
-        firstTerm           = head . factTerms
+        ithTerm i fact      = factTerms fact !! i -- urgh, will error if doesn't exist - but should never!
         tagsInConcs tag ru  = filter ((tag ==) . factTag) (L.get rConcs ru)
 
         candidates = sortednub $ do
             ru  <- rulesE
-            tag <- concTags ru
+            fac <- L.get rConcs ru
+            let tag = factTag fac
             guard $ (factTagMultiplicity tag == Linear) && (tag `elem` premTags ru)
-            return tag
+            index <- [0..length (factTerms fac) - 1]
+            return (tag, index)
 
-        -- All rules where the fact is only in conclusions once, and the first term
+        -- All rules where the fact is only in conclusions once, and the ith term
         -- was generated fresh
-        constructions tag = filter
+        constructions (tag, i) = filter
             ((\r -> (length (tagsInConcs tag r) == 1)
                 && (all (freshConc r) (tagsInConcs tag r))) . L.get cprRuleE) rules
           where
-            freshConc ru faConc  = freshFact (firstTerm faConc) `elem` (L.get rPrems ru)
+            freshConc ru faConc  = freshFact (ithTerm i faConc) `elem` (L.get rPrems ru)
 
         -- All rules where the fact is a premise but isn't in conclusions
         destructions tag = filter
@@ -387,13 +390,14 @@ closeRuleCache axioms typAsms sig protoRules intrRulesAC isdiff = -- trace ("clo
 
         -- A rule is a counterexample to injectivity if the fact is in the conclusions
         -- multiple times, or if it is in the conclusion without a corresponding premise
-        -- or fresh term
-        counterexample tag r  = length (tagsInConcs tag r) > 1
-            || (not (elem r $ L.get cprRuleE <$> constructions tag)
+        -- or fresh term, or if the ith term is not a fresh term in every construction
+        counterexample (tag, i) r  = length (tagsInConcs tag r) > 1
+            || (not (elem r $ L.get cprRuleE <$> constructions (tag, i))
                 && any unmatched (tagsInConcs tag r))
+            || length (constructions (tag, i)) == 0 -- This requires there must be at least one construction -- is that a bad thing?
           where
             unmatched faConc = not $ (`any` L.get rPrems r) $ \faPrem ->
-                factTag faPrem == tag && firstTerm faConc == firstTerm faPrem
+                factTag faPrem == tag && ithTerm i faConc == ithTerm i faPrem
 
 
     -- TODO: Does this testing really need ProtoRuleE instead of the AC variants?
