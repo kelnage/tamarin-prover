@@ -93,6 +93,7 @@ library
 
       Theory.Tools.AbstractInterpretation
       Theory.Tools.EquationStore
+      Theory.Tools.GraphExecution
       Theory.Tools.InjectiveFactInstances
       Theory.Tools.IntruderRules
       Theory.Tools.LoopBreakers

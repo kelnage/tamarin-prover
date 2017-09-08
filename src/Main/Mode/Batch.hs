@@ -24,6 +24,7 @@ import qualified Text.PrettyPrint.Class          as Pretty
 
 import           Theory
 import           Theory.Tools.Wellformedness     (checkWellformedness, checkWellformednessDiff)
+import           Theory.Tools.GraphExecution
 
 import           Main.Console
 import           Main.Environment
@@ -53,6 +54,9 @@ batchMode = tamarinMode
 
               , flagNone ["parse-only"] (addEmptyArg "parseOnly")
                   "Just parse the input file and pretty print it as-is"
+              
+              , flagNone ["graph"] (addEmptyArg "graph")
+                  "Just produce a graph of the expected protocol execution"
               ] ++
               outputFlags ++
               toolFlags
@@ -106,8 +110,9 @@ run thisMode as
     -- automatically generate the filename for output
     mkAutoPath :: FilePath -> String -> FilePath
     mkAutoPath dir baseName
-      | argExists "html" as = dir </> baseName
-      | otherwise           = dir </> addExtension (baseName ++ "_analyzed") "spthy"
+      | argExists "html"  as = dir </> baseName
+      | argExists "graph" as = dir </> addExtension (baseName ++ "_graph") "dot"
+      | otherwise            = dir </> addExtension (baseName ++ "_analyzed") "spthy"
 
     -- theory processing functions
     ------------------------------
@@ -116,6 +121,10 @@ run thisMode as
     processThy inFile
       -- | argExists "html" as =
       --     generateHtml inFile =<< loadClosedThy as inFile
+      | (argExists "graph" as) && (argExists "diff" as) =
+          (error "cannot graph diff equiv protocol models yet")
+      | (argExists "graph" as) =
+          generateGraph inFile =<< loadClosedThy as inFile
       | (argExists "parseOnly" as) && (argExists "diff" as) =
           out (const Pretty.emptyDoc) prettyOpenDiffTheory   (loadOpenDiffThy   as inFile)
       | argExists "parseOnly" as =
@@ -175,6 +184,14 @@ run thisMode as
               putStrLn $ ""
               putStrLn $ replicate 78 '-'
               return summary
+
+    generateGraph :: FilePath
+                  -> ClosedTheory
+                  -> IO (Pretty.Doc)
+    generateGraph inFile thy = do
+        let outFile = mkOutPath inFile
+        writeFile outFile $ graphTheoryExec thy
+        return $ Pretty.vcat [ Pretty.text $ "Generated dot file into " ++ outFile ]
 
     {- TO BE REACTIVATED once infrastructure from interactive mode can be used
 
