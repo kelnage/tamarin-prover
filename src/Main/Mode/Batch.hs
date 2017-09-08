@@ -54,7 +54,7 @@ batchMode = tamarinMode
 
               , flagNone ["parse-only"] (addEmptyArg "parseOnly")
                   "Just parse the input file and pretty print it as-is"
-              
+
               , flagNone ["graph"] (addEmptyArg "graph")
                   "Just produce a graph of the expected protocol execution"
               ] ++
@@ -185,6 +185,7 @@ run thisMode as
               putStrLn $ replicate 78 '-'
               return summary
 
+    -- | Produce a dot-graph representing a protocol's possible execution transitions in the absense of an adversary
     generateGraph :: FilePath
                   -> ClosedTheory
                   -> IO (Pretty.Doc)
