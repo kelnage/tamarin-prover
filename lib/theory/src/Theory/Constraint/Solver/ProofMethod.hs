@@ -362,18 +362,22 @@ goalRankingName ranking =
 -- | Use a 'GoalRanking' to sort a list of 'AnnotatedGoal's stemming from the
 -- given constraint 'System'.
 rankGoals :: ProofContext -> GoalRanking -> System -> [AnnotatedGoal] -> [AnnotatedGoal]
-rankGoals ctxt ranking = case ranking of
-    GoalNrRanking       -> \_sys -> goalNrRanking
-    OracleRanking -> oracleRanking ctxt
-    OracleSmartRanking -> oracleSmartRanking ctxt
-    UsefulGoalNrRanking ->
-        \_sys -> sortOn (\(_, (nr, useless)) -> (useless, nr))
-    SapicRanking -> sapicRanking ctxt
-    SapicLivenessRanking -> sapicLivenessRanking ctxt
-    SapicPKCS11Ranking -> sapicPKCS11Ranking ctxt
-    SmartRanking useLoopBreakers -> smartRanking ctxt useLoopBreakers
-    SmartDiffRanking -> smartDiffRanking ctxt
-    InjRanking useLoopBreakers -> injRanking ctxt useLoopBreakers
+rankGoals ctxt ranking sys goals = trace (logMsg) ranked
+  where
+    goalCount = length goals
+    ranked = case ranking of
+        GoalNrRanking       -> goalNrRanking goals
+        OracleRanking -> oracleRanking ctxt sys goals
+        OracleSmartRanking -> oracleSmartRanking ctxt sys goals
+        UsefulGoalNrRanking -> sortOn (\(_, (nr, useless)) -> (useless, nr)) goals
+        SapicRanking -> sapicRanking ctxt sys goals
+        SapicLivenessRanking -> sapicLivenessRanking ctxt sys goals
+        SapicPKCS11Ranking -> sapicPKCS11Ranking ctxt sys goals
+        SmartRanking useLoopBreakers -> smartRanking ctxt useLoopBreakers sys goals
+        SmartDiffRanking -> smartDiffRanking ctxt sys goals
+        InjRanking useLoopBreakers -> injRanking ctxt useLoopBreakers sys goals
+    logMsg = "Ranking goals for " ++ L.get pcLemmaName ctxt ++ ", got " ++ (show goalCount) ++ " goals to rank" ++
+            (if goalCount == 0 then "" else (", top ranked was: " ++ show (head ranked)))
 
 -- | Use a 'GoalRanking' to generate the ranked, list of possible
 -- 'ProofMethod's and their corresponding results in this 'ProofContext' and
