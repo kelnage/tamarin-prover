@@ -11,7 +11,7 @@ module Theory.Tools.GraphExecution (
     graphTheoryExec
   ) where
 
-import           Data.List       (nub)
+import           Data.List       (nub, groupBy, intercalate)
 import qualified Data.Map        as M
 
 import qualified Text.Dot        as D
@@ -37,9 +37,12 @@ createExecutionGraph thy = do
     let nodeNames = map getRuleName rules
     -- For each rule, and every fact in that rules premises, find all conclusion facts that unify with the premise
     -- fact. Add dot-specific styling depending on fact type.
-    let edges = nub [(getRuleName i, getRuleName r, edgeStyle f) | r <- rules
-                                                                 , f <- (L.get rPrems r)
-                                                                 , i <- possibleSourceRules thy f rules]
+    let edges = map combineEdges $ groupBy isSameEdge $ nub [ (getRuleName i, getRuleName r, edgeInfo f)
+                                                            | r <- rules
+                                                            , f <- L.get rPrems r
+                                                            , i <- possibleSourceRules thy f rules
+                                                            ]
+
     -- Create the nodes and label them with the rule name
     -- TODO: add node-specific styling?
     nodeTab <- sequence [ do nd <- D.node [("label", n)]
@@ -47,14 +50,29 @@ createExecutionGraph thy = do
                         | n <- nodeNames ]
     let fm = M.fromList nodeTab
     -- Create the edges between the nodes
-    -- TODO: label with fact name?
-    sequence_ [ D.edge (fm M.! src) (fm M.! dst) sty | (src,dst,sty) <- edges ]
+    sequence_ [ D.edge (fm M.! src) (fm M.! dst) (toStyle sty) | (src,dst,sty) <- edges ]
     return ()
   where
-    edgeStyle (Fact tag _) = case (factTagName tag, factTagMultiplicity tag) of
-        ("In", _)          -> [("color", "red"), ("style", "dotted")]
-        (_,    Persistent) -> [("color", "blue"), ("style", "dashed")]
-        _                  -> [("color", "black")]
+    -- Given a premise fact for a graph edge, produce an edge info triple
+    edgeInfo (Fact tag _) = case (factTagName tag, factTagMultiplicity tag) of
+        ("In", _)          -> ("red", "dotted", "")
+        (name, Persistent) -> ("blue", "dashed", name)
+        (name, _)          -> ("black", "solid", name)
+
+    -- Convert an edge info triple into a dot-style list of tuples
+    toStyle (color, linetype, label) = [("color", color), ("type", linetype), ("label", label)]
+
+    -- Compare a triple containing a src, dst, and an edge info and return true if they have the same src, dst and edge
+    -- info (except the label)
+    isSameEdge (src1, dst1, (col1, typ1, _)) (src2, dst2, (col2, typ2, _)) =
+        src1 == src2 && dst1 == dst2 && col1 == col2 && typ1 == typ2
+
+    -- Combine a list of src, dst, edge info triples into a single src, dst, edge info, with labels joined by newlines
+    combineEdges es@((src, dst, (col, typ, _)):_) =
+        (src, dst, (col, typ, (intercalate "\n" (map getLabel es))))
+      where
+        getLabel (_, _, (_, _, lab)) = lab
+    combineEdges [] = ("", "", ("", "", ""))
 
 -- | Find all rules that could possibly unify with the premise fact
 possibleSourceRules :: ClosedTheory -> LNFact -> [ProtoRuleE] -> [ProtoRuleE]
