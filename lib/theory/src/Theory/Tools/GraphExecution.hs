@@ -47,6 +47,7 @@ createExecutionGraph thy = do
                         | n <- nodeNames ]
     let fm = M.fromList nodeTab
     -- Create the edges between the nodes
+    -- TODO: label with fact name?
     sequence_ [ D.edge (fm M.! src) (fm M.! dst) sty | (src,dst,sty) <- edges ]
     return ()
   where
@@ -57,7 +58,7 @@ createExecutionGraph thy = do
 
 -- | Find all rules that could possibly unify with the premise fact
 possibleSourceRules :: ClosedTheory -> LNFact -> [ProtoRuleE] -> [ProtoRuleE]
-possibleSourceRules thy p = filter $ \ru -> any (\c -> unifiable thy p c) (L.get rConcs ru)
+possibleSourceRules thy p = filter $ \ru -> any (\c -> unifiable thy (renameAvoiding p c) c) (L.get rConcs ru)
 
 -- | Check whether two rules unify. This allows In and Out facts to unify if their term argument unify.
 unifiable :: ClosedTheory -> LNFact -> LNFact -> Bool
