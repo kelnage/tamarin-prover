@@ -127,6 +127,7 @@ module Theory (
   , getIntrVariants
   , getIntrVariantsDiff
   , getProtoRuleEs
+  , getProtoRuleACs
   , getProtoRuleEsDiff
   , getProofContext
   , getProofContextDiff
@@ -1013,6 +1014,10 @@ getIntrVariantsDiff s
 -- | All protocol rules modulo E.
 getProtoRuleEs :: ClosedTheory -> [ProtoRuleE]
 getProtoRuleEs = map openProtoRule . theoryRules
+
+-- | All protocol rules modulo AC.
+getProtoRuleACs :: ClosedTheory -> [ProtoRuleAC]
+getProtoRuleACs = map (L.get cprRuleAC) . theoryRules
 
 -- | All protocol rules modulo E.
 getProtoRuleEsDiff :: Side -> ClosedDiffTheory -> [ProtoRuleE]

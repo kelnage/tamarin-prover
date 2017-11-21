@@ -33,14 +33,14 @@ graphTheoryExec thy = D.showDot (createExecutionGraph thy)
 -- TODO: allow rules to be automatically excluded from the graph based on a rule name pattern? (Such as reveal)
 createExecutionGraph :: ClosedTheory -> D.Dot ()
 createExecutionGraph thy = do
-    let rules = getProtoRuleEs thy
+    let rules = getProtoRuleACs thy
     let nodeNames = map getRuleName rules
     -- For each rule, and every fact in that rules premises, find all conclusion facts that unify with the premise
     -- fact. Add dot-specific styling depending on fact type.
     let edges = map combineEdges $ groupBy isSameEdge $ nub [ (getRuleName i, getRuleName r, edgeInfo f)
                                                             | r <- rules
                                                             , f <- L.get rPrems r
-                                                            , i <- possibleSourceRules thy f rules
+                                                            , i <- possibleSourceRules thy f (L.get pracVariants (L.get rInfo r)) rules
                                                             ]
 
     -- Create the nodes and label them with the rule name
@@ -67,25 +67,35 @@ createExecutionGraph thy = do
     isSameEdge (src1, dst1, (col1, typ1, _)) (src2, dst2, (col2, typ2, _)) =
         src1 == src2 && dst1 == dst2 && col1 == col2 && typ1 == typ2
 
-    -- Combine a list of src, dst, edge info triples into a single src, dst, edge info, with labels joined by newlines
+    -- Combine a list of src, dst, edge info triples into a single src, dst, edge info, with unique labels joined by
+    -- newlines
     combineEdges es@((src, dst, (col, typ, _)):_) =
-        (src, dst, (col, typ, (intercalate "\n" (map getLabel es))))
+        (src, dst, (col, typ, intercalate "\n" $ nub (map getLabel es)))
       where
         getLabel (_, _, (_, _, lab)) = lab
     combineEdges [] = ("", "", ("", "", ""))
 
 -- | Find all rules that could possibly unify with the premise fact
-possibleSourceRules :: ClosedTheory -> LNFact -> [ProtoRuleE] -> [ProtoRuleE]
-possibleSourceRules thy p = filter $ \ru -> any (\c -> unifiable thy (renameAvoiding p c) c) (L.get rConcs ru)
+possibleSourceRules :: ClosedTheory -> LNFact -> Disj LNSubstVFresh -> [ProtoRuleAC] -> [ProtoRuleAC]
+possibleSourceRules thy p psubs = filter $ \ru -> or [checkUnify (applyFrSubst psub p c) (applyFrSubst csub c p)
+                                                     | c <- L.get rConcs ru
+                                                     , psub <- getDisj psubs
+                                                     , csub <- getRuleDisj ru]
+  where
+    getRuleDisj ru = getDisj (L.get pracVariants (L.get rInfo ru))
+    applyFrSubst s t1 t2  = apply (freshToFreeAvoiding s t2) t1
+    checkUnify t1 t2 = unifiable thy (renameAvoiding t1 t2) t2
 
 -- | Check whether two rules unify. This allows In and Out facts to unify if their term argument unify.
 unifiable :: ClosedTheory -> LNFact -> LNFact -> Bool
 unifiable thy prem@(Fact ptag pts) conc@(Fact ctag cts) =
     case (factTagName ptag, factTagName ctag) of
       -- Allow In/Out facts to unify based on their term argument
-      ("In", "Out") -> (runMaude (unifiableLNTerms (head pts) (head cts)))
-      -- Everything else must unify based on the whole fact
-      (_, _)        -> (runMaude (unifiableLNFacts prem conc))
+      ("In", "Out") -> runMaude (unifiableLNTerms (head pts) (head cts))
+      -- Nothing will unify with FreshFacts (which will only occur in the premises)
+      ("Fr", _)     -> False
+      -- Everything else must unify based on the fact tag and its term argument(s)
+      (a, b)        -> if (a == b) then runMaude (unifiableLNFacts prem conc) else False
   where
     -- TODO: check whether this is creating a new instance of Maude for each unification
     runMaude = (`runReader` L.get pcMaudeHandle (getProofContext (getExistsLemma thy) thy))
