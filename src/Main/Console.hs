@@ -150,7 +150,7 @@ updateArg a v = Right . addArg a v
 
 -- | Add the help flag.
 helpFlag :: Flag Arguments
-helpFlag = flagHelpSimple (addEmptyArg "help")
+helpFlag = flagNone ["help","h"] (addEmptyArg "help") "Display help message"
 
 
 ------------------------------------------------------------------------------
