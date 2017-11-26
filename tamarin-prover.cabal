@@ -166,6 +166,7 @@ executable tamarin-prover
       Main
       Main.Console
       Main.Environment
+      Main.Flags
       Main.TheoryLoader
       Main.Utils
       Main.Mode.Batch

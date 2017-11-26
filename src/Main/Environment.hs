@@ -22,19 +22,12 @@ import           System.IO
 import           System.Process
 
 import           Main.Console
+import           Main.Flags
 
 
 ------------------------------------------------------------------------------
 -- Retrieving the paths to required tools.
 ------------------------------------------------------------------------------
-
--- | Flags for handing over the path to the maude and graph rendering tool (dot or json).
-toolFlags :: [Flag Arguments]
-toolFlags =
-  [ flagOpt "dot" ["with-dot"] (updateArg "withDot") "FILE" "Path to GraphViz 'dot' tool"
-  , flagOpt "json" ["with-json"] (updateArg "withJson") "FILE" "Path to JSON rendering tool (not working with --diff)"
-  , flagOpt "maude" ["with-maude"] (updateArg "withMaude") "FILE" "Path to 'maude' rewriting tool"
-  ]
 
 -- | Path to maude tool
 maudePath :: Arguments -> FilePath

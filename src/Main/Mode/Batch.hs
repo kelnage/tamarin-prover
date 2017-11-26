@@ -27,6 +27,7 @@ import           Theory.Tools.Wellformedness     (checkWellformedness, checkWell
 
 import           Main.Console
 import           Main.Environment
+import           Main.Flags
 import           Main.TheoryLoader
 import           Main.Utils
 
@@ -45,26 +46,12 @@ batchMode = tamarinMode
       , modeGroupFlags = Group
           { groupUnnamed =
               theoryLoadFlags ++
-              -- [ flagNone ["html"] (addEmptyArg "html")
-              --     "generate HTML visualization of proofs"
-
-              [ flagNone ["no-compress"] (addEmptyArg "noCompress")
-                  "Do not use compressed sequent visualization"
-
-              , flagNone ["parse-only"] (addEmptyArg "parseOnly")
-                  "Just parse the input file and pretty print it as-is"
-              ] ++
-              outputFlags ++
+              batchModeFlags ++
               toolFlags
           , groupHidden = []
           , groupNamed = []
           }
       }
-
-    outputFlags =
-      [ flagOpt "" ["output","o"] (updateArg "outFile") "FILE" "Output file"
-      , flagOpt "" ["Output","O"] (updateArg "outDir") "DIR"  "Output directory"
-      ]
 
 -- | Process a theory file.
 run :: TamarinMode -> Arguments -> IO ()

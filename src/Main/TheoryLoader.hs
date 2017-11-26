@@ -56,8 +56,6 @@ import           Data.FileEmbed                      (embedFile)
 import           Control.Category
 import           Control.DeepSeq                     (rnf)
 
-import           System.Console.CmdArgs.Explicit
-
 import           Theory
 import           Theory.Text.Parser                  (parseIntruderRules, parseOpenTheory, parseOpenTheoryString, parseOpenDiffTheory, parseOpenDiffTheoryString)
 import           Theory.Text.Pretty
@@ -68,6 +66,7 @@ import           Theory.Tools.Wellformedness
 
 import           Main.Console
 import           Main.Environment
+import           Main.Flags
 
 import           Text.Parsec                hiding ((<|>))
 
@@ -78,37 +77,6 @@ import           Text.Parsec                hiding ((<|>))
 
 
 -- | Flags for loading a theory.
-theoryLoadFlags :: [Flag Arguments]
-theoryLoadFlags =
-  [ flagOpt "" ["prove"] (updateArg "prove") "LEMMAPREFIX"
-      "Attempt to prove a lemma "
-
-  , flagOpt "dfs" ["stop-on-trace"] (updateArg "stopOnTrace") "DFS|BFS|NONE"
-      "How to search for traces (default DFS)"
-
-  , flagOpt "5" ["bound", "b"] (updateArg "bound") "INT"
-      "Bound the depth of the proofs"
-
-  , flagOpt "s" ["heuristic"] (updateArg "heuristic") "(s|S|o|O|p|P|l|c|C|i|I)+"
-      "Sequence of goal rankings to use (default 's')"
-
-  , flagOpt "summary" ["partial-evaluation"] (updateArg "partialEvaluation")
-      "SUMMARY|VERBOSE"
-      "Partially evaluate multiset rewriting system"
-
-  , flagOpt "" ["defines","D"] (updateArg "defines") "STRING"
-      "Define flags for pseudo-preprocessor."
-
-  , flagNone ["diff"] (addEmptyArg "diff")
-      "Turn on observational equivalence mode using diff terms."
-
-  , flagNone ["quit-on-warning"] (addEmptyArg "quit-on-warning")
-      "Strict mode that quits on any warning that is emitted."
-
---  , flagOpt "" ["diff"] (updateArg "diff") "OFF|ON"
---      "Turn on observational equivalence (default OFF)."
-  ]
-
 -- | The defined pre-processor flags in the argument.
 defines :: Arguments -> [String]
 defines = findArg "defines"

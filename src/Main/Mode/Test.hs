@@ -18,6 +18,7 @@ import           Test.HUnit                      (Counts(..), runTestTT)
 
 import           Main.Console
 import           Main.Environment
+import           Main.Flags
 
 import qualified Term.UnitTests                  as Term (tests)
 -- import qualified Test.ParserTests                as Parser

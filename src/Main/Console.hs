@@ -21,22 +21,7 @@ module Main.Console (
   , tamarinMode
 
   , helpAndExit
-
-  -- * Argument parsing
-  , Arguments
-  , ArgKey
-  , ArgVal
-
-  -- ** Setting arguments
-  , updateArg
-  , addEmptyArg
-
-  , helpFlag
-
-  -- ** Retrieving arguments
-  , getArg
-  , findArg
-  , argExists
+  , unifiedHelpAndExit
 
   -- * Pretty printing and console output
   , lineWidth
@@ -62,6 +47,8 @@ import           Paths_tamarin_prover (version)
 
 import           Language.Haskell.TH
 import           Development.GitRev
+
+import           Main.Flags
 
 ------------------------------------------------------------------------------
 -- Static constants for the tamarin-prover
@@ -108,52 +95,6 @@ shortLineWidth = 78
 
 
 ------------------------------------------------------------------------------
--- A simple generic representation of arguments
-------------------------------------------------------------------------------
-
--- | A name of an argument.
-type ArgKey = String
-
--- | A value of an argument.
-type ArgVal = String
-
--- | It is most convenient to view arguments just as 'String' based key-value
--- pairs. If there are multiple values for the same key, then the left-most
--- one is preferred.
-type Arguments = [(ArgKey,ArgVal)]
-
--- | Does an argument exist.
-argExists :: String -> Arguments -> Bool
-argExists a = isJust . findArg a
-
--- | Find the value(s) corresponding to the given key.
-findArg :: MonadPlus m => ArgKey -> Arguments -> m ArgVal
-findArg a' as = msum [ return v | (a,v) <- as, a == a' ]
-
--- | Find the value corresponding to the given key. Throw an error if no value
--- exists.
-getArg :: ArgKey -> Arguments -> ArgVal
-getArg a =
-  fromMaybe (error $ "getArg: argument '" ++ a ++ "' not found") . findArg a
-
--- | Add an argument to the from of the list of arguments.
-addArg :: ArgKey -> ArgVal -> Arguments -> Arguments
-addArg a v = ((a,v):)
-
--- | Add an argument with the empty string as the value.
-addEmptyArg :: String -> Arguments -> Arguments
-addEmptyArg a = addArg a ""
-
--- | Update an argument.
-updateArg :: ArgKey -> ArgVal -> Arguments -> Either a Arguments
-updateArg a v = Right . addArg a v
-
--- | Add the help flag.
-helpFlag :: Flag Arguments
-helpFlag = flagNone ["help","h"] (addEmptyArg "help") "Display help message"
-
-
-------------------------------------------------------------------------------
 -- Modes for using the Tamarin prover
 ------------------------------------------------------------------------------
 
@@ -168,6 +109,19 @@ data TamarinMode = TamarinMode
        , tmIsMainMode  :: Bool
        }
 
+defaultMode = Mode
+  { modeGroupModes = toGroup []
+  , modeNames      = [programName]
+  , modeValue      = []
+  , modeCheck      = updateArg "mode" programName
+  , modeExpandAt   = False
+  , modeReform     = const Nothing-- no reform possibility
+  , modeHelp       = "Automated verification of security protocols."
+  , modeHelpSuffix = []
+  , modeArgs       = ([], Nothing)   -- no positional arguments
+  , modeGroupFlags = toGroup [] -- no flags
+  }
+
 -- | Smart constructor for a 'TamarinMode'.
 tamarinMode :: String -> Help
             -> (Mode Arguments -> Mode Arguments) -- ^ Changes to default mode.
@@ -175,26 +129,34 @@ tamarinMode :: String -> Help
             -> TamarinMode
 tamarinMode name help adaptMode run0 = TamarinMode
   { tmName = name
-  , tmCmdArgsMode = adaptMode $ Mode
-      { modeGroupModes = toGroup []
-      , modeNames      = [name]
-      , modeValue      = []
-      , modeCheck      = updateArg "mode" name
-      , modeExpandAt   = False
-      , modeReform     = const Nothing-- no reform possibility
-      , modeHelp       = help
-      , modeHelpSuffix = []
-      , modeArgs       = ([], Nothing)   -- no positional arguments
-      , modeGroupFlags = toGroup [] -- no flags
-      }
+  , tmCmdArgsMode = adaptMode $ defaultMode
   , tmRun        = run
   , tmIsMainMode = False
   }
   where
     run thisMode as
-      | argExists "help"    as = helpAndExit thisMode Nothing
+      | argExists "help"    as = unifiedHelpAndExit Nothing
       | argExists "version" as = putStrLn versionStr
       | otherwise              = run0 thisMode as
+
+tamarinFlags = theoryLoadFlags ++
+               toolFlags ++ 
+               interactiveModeFlags ++ 
+               batchModeFlags
+
+unifiedHelpAndExit :: Maybe String -> IO ()
+unifiedHelpAndExit mayMsg = do
+    putStrLn $ showText (Wrap lineWidth)
+             $ helpText header HelpFormatOne $ defaultMode 
+                { modeArgs       = ([], Just $ flagArg (updateArg "workDir") "WORKDIR")
+                , modeCheck      = updateArg "mode" "unified"
+                , modeGroupFlags = Group tamarinFlags [] [("About", [helpFlag])]
+                }
+  where
+    separator = replicate shortLineWidth '-'
+    (header, end) = case mayMsg of
+        Nothing  -> ([], return ())
+        Just msg -> (["error: " ++ msg], exitFailure)
 
 -- | Disply help message of a tamarin mode and exit.
 helpAndExit :: TamarinMode -> Maybe String -> IO ()

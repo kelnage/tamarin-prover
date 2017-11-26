@@ -22,6 +22,7 @@ import           Theory.Tools.IntruderRules
 
 import           Main.Console
 import           Main.Environment
+import           Main.Flags
 import           Main.TheoryLoader               (dhIntruderVariantsFile,bpIntruderVariantsFile)
 import           Main.Utils
 

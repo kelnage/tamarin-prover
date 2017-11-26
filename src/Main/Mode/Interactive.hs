@@ -28,6 +28,7 @@ import           Web.Dispatch
 import qualified Web.Settings
 
 import           Main.Console
+import           Main.Flags
 import           Main.Environment
 import           Main.TheoryLoader
 
@@ -47,14 +48,7 @@ interactiveMode = tamarinMode
       }
 
     interactiveFlags =
-      [ flagOpt "" ["port","p"] (updateArg "port") "PORT" "Port to listen on"
-      , flagOpt "" ["interface","i"] (updateArg "interface") "INTERFACE"
-                "Interface to listen on (use '*4' for all IPv4 interfaces)"
-      , flagOpt "" ["image-format"] (updateArg "image-format") "PNG|SVG" "image format used for graphs (default PNG)"
-      , flagNone ["debug"] (addEmptyArg "debug") "Show server debugging output"
-      -- , flagNone ["autosave"] (addEmptyArg "autosave") "Automatically save proof state"
-      -- , flagNone ["loadstate"] (addEmptyArg "loadstate") "Load proof state if present"
-      ] ++
+      interactiveModeFlags ++
       theoryLoadFlags ++
       toolFlags
 
