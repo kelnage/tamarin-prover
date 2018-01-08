@@ -46,6 +46,7 @@ library
       , deepseq
       , dlist
       , fclabels
+      , language-java
       , mtl
       , parallel
       , parsec
@@ -95,6 +96,7 @@ library
       Theory.Tools.EquationStore
       Theory.Tools.InjectiveFactInstances
       Theory.Tools.IntruderRules
+      Theory.Tools.JavaCodeGeneration
       Theory.Tools.LoopBreakers
       Theory.Tools.RuleVariants
       Theory.Tools.Wellformedness

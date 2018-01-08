@@ -17,6 +17,7 @@ import           Control.Exception               (evaluate)
 import           Data.List
 import           Data.Maybe
 import           System.Console.CmdArgs.Explicit as CmdArgs
+import           System.Directory
 import           System.FilePath
 import           System.Timing                   (timed)
 
@@ -24,6 +25,7 @@ import qualified Text.PrettyPrint.Class          as Pretty
 
 import           Theory
 import           Theory.Tools.Wellformedness     (checkWellformedness, checkWellformednessDiff)
+import           Theory.Tools.JavaCodeGeneration
 
 import           Main.Console
 import           Main.Environment
@@ -53,6 +55,9 @@ batchMode = tamarinMode
 
               , flagNone ["parse-only"] (addEmptyArg "parseOnly")
                   "Just parse the input file and pretty print it as-is"
+
+              , flagNone ["generate-code"] (addEmptyArg "code")
+                  "Generate Java code for the model"
               ] ++
               outputFlags ++
               toolFlags
@@ -107,6 +112,7 @@ run thisMode as
     mkAutoPath :: FilePath -> String -> FilePath
     mkAutoPath dir baseName
       | argExists "html" as = dir </> baseName
+      | argExists "code" as = dir </> (baseName ++ "_code")
       | otherwise           = dir </> addExtension (baseName ++ "_analyzed") "spthy"
 
     -- theory processing functions
@@ -116,6 +122,8 @@ run thisMode as
     processThy inFile
       -- | argExists "html" as =
       --     generateHtml inFile =<< loadClosedThy as inFile
+      | (argExists "code" as) =
+          generateCode inFile =<< loadClosedThy as inFile
       | (argExists "parseOnly" as) && (argExists "diff" as) =
           out (const Pretty.emptyDoc) prettyOpenDiffTheory   (loadOpenDiffThy   as inFile)
       | argExists "parseOnly" as =
@@ -174,6 +182,22 @@ run thisMode as
               putStrLn $ ""
               putStrLn $ replicate 78 '-'
               return summary
+
+    generateCode :: FilePath
+                 -> ClosedTheory
+                 -> IO (Pretty.Doc)
+    generateCode inFile thy = do
+        let outDir = mkOutPath inFile
+        outFiles <- mapM (writeCode outDir) (generateJavaCode thy)
+        return $ Pretty.vcat $
+            [ Pretty.text $ "Generated the following Java class files:" ] ++
+            (Pretty.text . ("\t" ++) <$> (show <$> outFiles))
+      where
+        writeCode :: FilePath -> (String, String) -> IO (FilePath)
+        writeCode outDir (filename, contents) = do
+            let outFile = (outDir </> filename)
+            writeFileWithDirs outFile contents
+            return outFile
 
     {- TO BE REACTIVATED once infrastructure from interactive mode can be used
 
